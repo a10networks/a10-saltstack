@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from collections import OrderedDict
-from mock import Mock, patch
+from mock import patch, Mock
 import unittest
 
 import a10_saltstack.forest.nodes
@@ -22,7 +22,6 @@ from a10_saltstack.helpers import helper
 
 from a10_saltstack.forest.nodes import ObjNode, InterNode
 from tests.unit.forest.custom_assertions import CustomAssertions
-from tests.unit.forest import fake_obj_dict as fobj
 
 
 def _patch_ne(instance):
@@ -535,4 +534,52 @@ class TestTransformTree(unittest.TestCase):
 
 
 class TestParseTree(unittest.TestCase):
-    pass
+
+    def setUp(self):
+        super(TestParseTree, self).setUp()
+
+        self.fake_config = {'a10_name': 'ada',
+            'a10_obj': 'coffee',
+            'fake_key': 'fake_val'}
+
+        # Mockout the RootNode class
+        root_patcher = patch('a10_saltstack.forest.obj_tree.RootNode')
+        self.root_mock = root_patcher.start()
+        self.addCleanup(root_patcher.stop)
+
+        # Mockout the _dfs_transform method
+        transform_patcher = patch('a10_saltstack.forest.obj_tree._dfs_transform',
+           new=Mock(return_value=self.fake_config))
+        transform_patcher.start()
+        self.addCleanup(transform_patcher.stop)
+
+        # Mockout the _dfs_cut method
+        cut_patcher = patch('a10_saltstack.forest.obj_tree._dfs_cut',
+            new=Mock(return_value=[Mock()]))
+        self.cut_mock = cut_patcher.start()
+        self.addCleanup(cut_patcher.stop)
+
+    def test_id_set(self):
+        root_actual = obj_tree.parse_tree('', {})
+        self.assertEquals('ada', root_actual.id)
+
+    def test_ref_set(self):
+        root_actual = obj_tree.parse_tree('coffee', {})
+        self.assertEquals('a10_coffee', root_actual.ref)
+
+    def test_addValDict_called(self):
+        obj_tree.parse_tree('', {})
+        self.root_mock().addValDict.assert_called_with(fake_key='fake_val')
+
+    def test_addChild_called(self):
+        obj_tree.parse_tree('', {})
+        self.root_mock().addChild.assert_called()
+
+    def test_dfs_cut_called(self):
+        obj_tree.parse_tree('', {})
+        self.cut_mock.assert_called_with(self.fake_config, self.root_mock())
+
+    def test_dfs_cut_notcalled(self):
+        temp_conf = {'a10_name': 'ada', 'a10_obj': 'coffee'}
+        obj_tree._dfs_transform = Mock(return_value=temp_conf)
+        self.cut_mock.assert_not_called()
