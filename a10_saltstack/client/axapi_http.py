@@ -13,7 +13,6 @@
 #    under the License.
 
 
-import errno
 import json
 import logging
 import requests
@@ -23,7 +22,6 @@ import time
 
 from a10_saltstack.client import errors as ae
 from a10_saltstack.client import responses as acos_responses
-import http.client as http_client
 
 
 LOG = logging.getLogger(__name__)
@@ -40,21 +38,13 @@ class HttpClient(object):
         "User-Agent": "a10-saltstack"
     }
 
-    def __init__(self, host, port=None, protocol="https", timeout=None,
-                 retry_errno_list=None):
+    def __init__(self, host, port=None, protocol="https", timeout=None):
         if port is None:
             if protocol is 'http':
                 port = 80
             else:
                 port = 443
         self.url_base = "%s://%s:%s" % (protocol, host, port)
-        self.retry_errnos = []
-        if retry_errno_list is not None:
-            self.retry_errnos += retry_errno_list
-        self.retry_err_strings = (['BadStatusLine'] +
-                                  ['[Errno %s]' % n for n in self.retry_errnos] +
-                                  [errno.errorcode[n] for n in self.retry_errnos
-                                   if n in errno.errorcode])
 
     def request(self, method, api_url, params={}, headers=None,
                 file_name=None, file_content=None, axapi_args=None, **kwargs):
@@ -82,7 +72,7 @@ class HttpClient(object):
         # Update params with axapi_args for currently unsupported configuration of objects
         if axapi_args is not None:
             formatted_axapi_args = dict([(k.replace('_', '-'), v) for k, v in
-                                        axapi_args.iteritems()])
+                                        axapi_args.items()])
             params = self.merge_dicts(params, formatted_axapi_args)
 
         if (file_name is None and file_content is not None) or \
